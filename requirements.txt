@@ -1,2 +1,5 @@
-git+https://github.com/Pycord-Development/pycord
+py-cord
 python-dotenv
+bs4
+requests
+lxml
