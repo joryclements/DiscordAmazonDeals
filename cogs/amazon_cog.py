@@ -51,9 +51,11 @@ def get_price(soup: bs4.BeautifulSoup):
     return price
 
 def get_asin(url: str):
-    pattern = regex.compile("https://www.amazon.ca/([\\w-]+/)?(dp|gp/product)/(\\w+/)?(\\w{10})")
+    pattern = regex.compile("http(s)*://www.amazon.c(a|om)/([\\w-]+/)?(dp|gp/product)/(\\w+/)?(\\w{10})")
     m = pattern.match(url)
-    print(m)
+    print(m.groups())
+
+
     if m:
         return m[4]
     else:
@@ -79,7 +81,6 @@ class Amazon(discord.Cog, name="az"):
     async def new_user(self, ctx: discord.ApplicationContext):
         await new_user(ctx)
         return
-
     @az.command(
         name="get_product",
         description="Get the title and price of an Amazon product",
@@ -93,7 +94,20 @@ class Amazon(discord.Cog, name="az"):
         price = get_price(soup)
         await ctx.respond(f"{title}\n{price}")
         return
-
+    @az.command(
+        name="get_asin",
+        description="Get the ASIN of an Amazon product",
+        guild_ids=ALLOWED_GUILDS)
+    @discord.option(name="url", description="URL of the Amazon product", required=True)
+    async def get_product(self, ctx: discord.ApplicationContext, url: str = "None"):
+        await ctx.defer()
+        asin = get_asin(url)
+        if asin is None:
+            await ctx.respond("Invalid URL")
+            return
+        else:
+            await ctx.respond(f"ASIN: {asin}")
+            return
     @az.command(
         name="save_product",
         description="Save the product to your tracked products",
