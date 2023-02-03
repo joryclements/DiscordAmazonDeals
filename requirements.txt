@@ -3,4 +3,5 @@ python-dotenv
 bs4
 requests
 lxml
-pycord-multicog
+apscheduler
+SQLAlchemy
