@@ -1,14 +1,26 @@
 # Overview
-A simple bot for tracking Amazon prices. Currently, it only supports tracking prices for products in the Canada.
-This in the future will use the [Amazon Product Advertising API](https://affiliate-program.amazon.com/gp/advertising/api/detail/main.html) to get product information.
+A bot for tracking Amazon prices right in Discord!
+Keep track of your favorite products and get notified when they go on sale via Discord direct messages.
+More features coming soon! (e.g. price history, price graphs, etc.) Have a feature request? Open an issue!
 
-# Commands
-### User Management
-* `/az add_user` - Add a user to the database
-* `/az remove_user` - Remove a user from the database
-* `/az list_users` - List all users in the database
+# Installation
+`pip3 install -r requirements.txt` to install dependencies.
 
-### Product Management
-* `/az add_product <url>` - Add a product to the database
-* `/az remove_product` - Remove a product from the database
-* `/az list_products` - List all products in the database
+You will also need a Discord bot token. You can get one [here](https://discordapp.com/developers/applications).
+
+# Configuration
+There is a `settings.env` file that you must fill out with your own information.
+* `DISCORD_API_KEY` - Your Discord bot token
+* `ALLOWED_GUILDS` - The guild ID of your Discord server(s) (separated by commas if multiple)
+* `SQLITE_DB_PATH` - The path to your SQLite database file (e.g. `./amazon.db`)
+
+# Usage
+### Starting the Bot
+`python3 main.py` to start the bot.
+
+### Commands - Admin Management
+Coming Soon 
+
+### Commands -  Product Management
+* `/az save_product <url>` - Add a product to the database, where `<url>` is the Amazon product URL
+* `/az view_products` - List all your saved products

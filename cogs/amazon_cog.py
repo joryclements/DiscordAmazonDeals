@@ -179,7 +179,7 @@ class Amazon(discord.Cog, name="az"):
         description="Save the product to your tracked products",
         guild_ids=ALLOWED_GUILDS)
     @discord.option(name="url", description="URL of the Amazon product", required=True)
-    async def get_product(self, ctx: discord.ApplicationContext, url: str = "None"):
+    async def save_product(self, ctx: discord.ApplicationContext, url: str = "None"):
         await ctx.defer()
         # Check if the user is in the database
         user = get_user(ctx)
