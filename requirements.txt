@@ -6,3 +6,4 @@ lxml
 apscheduler
 SQLAlchemy
 schedule
+discord.py-pagination

@@ -22,5 +22,5 @@ There is a `settings.env` file that you must fill out with your own information.
 Coming Soon 
 
 ### Commands -  Product Management
-* `/az save_product <url>` - Add a product to the database, where `<url>` is the Amazon product URL
+* `/amzn track <url>` - Add a product to the database, where `<url>` is the Amazon product URL
 * `/az view_products` - List all your saved products

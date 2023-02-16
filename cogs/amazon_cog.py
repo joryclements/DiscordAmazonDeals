@@ -7,16 +7,20 @@ import bs4
 import requests
 from dotenv import load_dotenv
 import sqlite3
-
+from discord.ext import pages
 
 load_dotenv(dotenv_path="settings.env")
 ALLOWED_GUILDS = [int(os.getenv("ALLOWED_GUILDS"))]
 HEADERS = ({'User-Agent':
-                'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36',
+                'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 '
+                'Safari/537.36',
             'Accept-Language': 'en-US, en;q=0.5'})
 
+
+# Job Class
+# This class is used to create a job object for each product being tracked
 class Job:
-    def __init__(self, title, current_price, interval, url, last_checked=None, user_id=None):
+    def __init__(self, title, current_price, interval, url, last_checked=None, user_id=None, message=False):
         self.title = title
         self.current_price = current_price
         self.previous_prices = []
@@ -24,26 +28,36 @@ class Job:
         self.url = url
         self.last_checked = last_checked
         self.user_id = user_id
+        self.message = message
 
     def update_price(self):
-        print("Updating price at " + str(datetime.datetime.now()))
         webpage = requests.get(self.url, headers=HEADERS)
         soup = bs4.BeautifulSoup(webpage.content, "lxml")
-        self.last_checked = datetime.datetime.now()
+        self.last_checked = datetime.datetime.now().isoformat()
         try:
             self.previous_prices.append(self.current_price)
             self.current_price = get_price(soup=soup)
         except AttributeError as e:
             print(e)
         try:
-            #update the database
+            # update the database
             conn = sqlite3.connect(os.getenv("SQLITE_DATABASE"))
             cursor = conn.cursor()
-            cursor.execute("UPDATE products SET price = ?, date_updated = ? WHERE url = ?", (self.current_price, datetime.datetime.now().isoformat(), self.url))
+            cursor.execute("UPDATE products SET price = ?, date_updated = ? WHERE url = ?",
+                           (self.current_price, datetime.datetime.now().isoformat(), self.url))
             conn.commit()
             conn.close()
         except sqlite3.Error as e:
             print(e)
+
+    async def send_notification(self, user: discord.User):
+        embed = discord.Embed(title=self.title, url=self.url, color=0x00ff00)
+        embed.add_field(name="Current Price", value=self.current_price, inline=True)
+        embed.add_field(name="Previous Price", value=self.previous_prices[-1], inline=True)
+        embed.add_field(name="Percent Change", value=self.percent_change, inline=True)
+        embed.set_footer(text="Last Checked: " + str(self.last_checked))
+        await user.send(embed=embed)
+
 
 ## User Functions
 ## These functions are used to create and manage user files
@@ -59,15 +73,18 @@ async def new_user(ctx: discord.ApplicationContext):
     except sqlite3.IntegrityError:
         conn.close()
         return False
-async def get_products(ctx: discord.ApplicationContext):
+
+
+async def get_products(author_id: int):
     conn = sqlite3.connect(os.getenv("SQLITE_DATABASE"))
     cursor = conn.cursor()
     # Select the url and price for all products associated with the user
-    cursor.execute("SELECT title, price, date_updated, url FROM products WHERE user_id = ?", (ctx.author.id,))
+    cursor.execute("SELECT title, price, date_updated, url FROM products WHERE user_id = ?", (author_id,))
     products = cursor.fetchall()
     conn.close()
-    print(products)
     return products
+
+
 def get_user(ctx: discord.ApplicationContext):
     conn = sqlite3.connect(os.getenv("SQLITE_DATABASE"))
     cursor = conn.cursor()
@@ -75,20 +92,19 @@ def get_user(ctx: discord.ApplicationContext):
     user = cursor.fetchone()
     conn.close()
     return user
+
+
 ## Parsing Functions
 ## These functions are used to parse the HTML of the Amazon Canada website
 def get_title(soup: bs4.BeautifulSoup):
     try:
-        # Outer Tag Object
         title = soup.find("span", attrs={"id": 'productTitle'}).string.strip()
-
     except AttributeError as e:
         title = e
-
     return title
 
 
-def get_price(soup: bs4.BeautifulSoup=None, url: str=None):
+def get_price(soup: bs4.BeautifulSoup = None, url: str = None):
     if soup is None:
         print("Soup is None")
     if url is None:
@@ -103,6 +119,7 @@ def get_price(soup: bs4.BeautifulSoup=None, url: str=None):
         price = e
 
     return price
+
 
 def get_asin(url: str):
     # Split the URL by the forward slash
@@ -141,35 +158,39 @@ def setup_db():
     conn.commit()
     conn.close()
 
-## Scheduler Functions
 
 class Amazon(discord.Cog, name="az"):
     def __init__(self, bot):
         super().__init__()
         self.bot = bot
-        setup_db()
         self.queue = asyncio.Queue()
         asyncio.ensure_future(self.process_queue())
+        setup_db()
 
+    # Job Scheduler
     async def process_queue(self):
+        # This function will run forever, checking the queue for jobs
         while True:
             if self.queue.empty():
                 await asyncio.sleep(1)
                 continue
 
+            # Get the next job from the queue
             job = await self.queue.get()
-            if datetime.datetime.fromisoformat(job.last_checked) + datetime.timedelta(seconds=job.refresh_interval) < datetime.datetime.now():
+            if datetime.datetime.fromisoformat(job.last_checked) + datetime.timedelta(
+                    seconds=job.refresh_interval) < datetime.datetime.now():
                 job.update_price()
-                user = await self.bot.fetch_user(job.user_id)
-                await user.send(f"I just checked the price for {job.title} has changed to {job.current_price} (was {job.previous_prices})")
-            else:
-                # Re-add the job to the queue
-                await self.queue.put(job)
+                # Notify the user if the price has changed
+                if job.check_price_change():
+                    user = await self.bot.fetch_user(job.user_id)
+                    await job.send_notification(user=user)
+            # Put the job back in the queue
+            await self.queue.put(job)
             self.queue.task_done()
 
-
-    az = discord.SlashCommandGroup(name="az",
-                                   description="AMAZON CANADA",
+    az = discord.SlashCommandGroup(name="amzn",
+                                   description="Discord bot to track Amazon products and notify you when the price "
+                                               "changes!",
                                    guild_ids=ALLOWED_GUILDS)
 
     @discord.Cog.listener()
@@ -177,18 +198,37 @@ class Amazon(discord.Cog, name="az"):
         print(f"COG READY: Amazon - NEW")
 
     @az.command(
-        name="view_products",
-        description="Get a list of saved products",
+        name="view",
+        description="View all of your tracked Amazon products",
         guild_ids=ALLOWED_GUILDS)
     async def view_products(self, ctx: discord.ApplicationContext):
-        products = await get_products(ctx)
-        embed = discord.Embed(
-            title="Amazon Tracked Products",
-            color=discord.Color.orange()
+        products = await get_products(ctx.author.id)
+        if products is None:
+            await ctx.send("You have no tracked products!")
+            return
+
+        # Split the list of products into chunks of 5 products if there are more than 5 products
+        product_pages = []
+        for i in range(0, len(products), 5):
+            product_pages.append(products[i:i + 5])
+        # Create embeds for each page
+        embed_pages = []
+        for page in product_pages:
+            embed = discord.Embed(title=f"{ctx.author}'s Tracked Amazon Products", color=0xFFA500)
+            for product in page:
+                # Get the time difference between now and the last time the price was updated
+                difference = (datetime.datetime.now() - datetime.datetime.fromisoformat(product[2])).total_seconds()
+
+                embed.add_field(name=product[0], value=f"[{product[1]}]({product[3]}) as of {divmod(difference, 3600)[0]} hours, {divmod(difference, 60)[0]} min ago.", inline=False)
+            embed_pages.append(embed)
+
+        paginator = pages.Paginator(
+            pages=embed_pages,
+            timeout=None,
+            author_check=False,
         )
-        for product in products:
-            embed.add_field(name=product[0], value=f"[{product[1]}]({product[3]}) as of {product[2]}", inline=False)
-        await ctx.send(embed=embed)
+        await paginator.respond(ctx.interaction)
+
     @az.command(
         name="get_product",
         description="Get the title and price of an Amazon product",
@@ -225,10 +265,14 @@ class Amazon(discord.Cog, name="az"):
         try:
             conn = sqlite3.connect(os.getenv("SQLITE_DATABASE"))
             cursor = conn.cursor()
-            cursor.execute("INSERT INTO products VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (url, ctx.author.id, title, price, datetime.datetime.now().isoformat(), datetime.datetime.now().isoformat(), price, 0))
+            cursor.execute("INSERT INTO products VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (
+                url, ctx.author.id, title, price, datetime.datetime.now().isoformat(),
+                datetime.datetime.now().isoformat(),
+                price, 0))
             conn.commit()
             conn.close()
-            job = Job(title=title, current_price=price, url=url, interval=30, last_checked=datetime.datetime.now().isoformat(), user_id=ctx.author.id)
+            job = Job(title=title, current_price=price, url=url, interval=30,
+                      last_checked=datetime.datetime.now().isoformat(), user_id=ctx.author.id)
             await self.queue.put(job)
         except sqlite3.IntegrityError as e:
             conn.close()
