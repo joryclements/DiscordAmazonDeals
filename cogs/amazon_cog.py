@@ -1,16 +1,13 @@
+import asyncio
 import datetime
 import discord
 import os
 import re as regex
 import bs4
 import requests
-from pytz import utc
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
-
 from dotenv import load_dotenv
 import sqlite3
+
 
 load_dotenv(dotenv_path="settings.env")
 ALLOWED_GUILDS = [int(os.getenv("ALLOWED_GUILDS"))]
@@ -18,17 +15,35 @@ HEADERS = ({'User-Agent':
                 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36',
             'Accept-Language': 'en-US, en;q=0.5'})
 
-jobstores = {
-    'default': SQLAlchemyJobStore(url='sqlite:///jobs.sqlite')
-}
-executors = {
-    'default': ThreadPoolExecutor(20),
-    'processpool': ProcessPoolExecutor(5)
-}
-job_defaults = {
-    'coalesce': False,
-    'max_instances': 3
-}
+class Job:
+    def __init__(self, title, current_price, interval, url, last_checked=None, user_id=None):
+        self.title = title
+        self.current_price = current_price
+        self.previous_prices = []
+        self.refresh_interval = interval
+        self.url = url
+        self.last_checked = last_checked
+        self.user_id = user_id
+
+    def update_price(self):
+        print("Updating price at " + str(datetime.datetime.now()))
+        webpage = requests.get(self.url, headers=HEADERS)
+        soup = bs4.BeautifulSoup(webpage.content, "lxml")
+        self.last_checked = datetime.datetime.now()
+        try:
+            self.previous_prices.append(self.current_price)
+            self.current_price = get_price(soup=soup)
+        except AttributeError as e:
+            print(e)
+        try:
+            #update the database
+            conn = sqlite3.connect(os.getenv("SQLITE_DATABASE"))
+            cursor = conn.cursor()
+            cursor.execute("UPDATE products SET price = ?, date_updated = ? WHERE url = ?", (self.current_price, datetime.datetime.now().isoformat(), self.url))
+            conn.commit()
+            conn.close()
+        except sqlite3.Error as e:
+            print(e)
 
 ## User Functions
 ## These functions are used to create and manage user files
@@ -125,18 +140,32 @@ def setup_db():
     """)
     conn.commit()
     conn.close()
+
+## Scheduler Functions
+
 class Amazon(discord.Cog, name="az"):
     def __init__(self, bot):
         super().__init__()
         self.bot = bot
         setup_db()
-        self.scheduler = BackgroundScheduler(jobstores=jobstores, executors=executors, job_defaults=job_defaults,
-                                        timezone=utc)
-        self.scheduler.remove_all_jobs()
-        self.scheduler.start()
-    def add_job(self, url: str):
-        self.scheduler.add_job(get_price, 'interval', args=[None, url], seconds=30,)
-        print("Added job for " + url + "at" + str(datetime.datetime.now()))
+        self.queue = asyncio.Queue()
+        asyncio.ensure_future(self.process_queue())
+
+    async def process_queue(self):
+        while True:
+            if self.queue.empty():
+                await asyncio.sleep(1)
+                continue
+
+            job = await self.queue.get()
+            if datetime.datetime.fromisoformat(job.last_checked) + datetime.timedelta(seconds=job.refresh_interval) < datetime.datetime.now():
+                job.update_price()
+                user = await self.bot.fetch_user(job.user_id)
+                await user.send(f"I just checked the price for {job.title} has changed to {job.current_price} (was {job.previous_prices})")
+            else:
+                # Re-add the job to the queue
+                await self.queue.put(job)
+            self.queue.task_done()
 
 
     az = discord.SlashCommandGroup(name="az",
@@ -199,7 +228,8 @@ class Amazon(discord.Cog, name="az"):
             cursor.execute("INSERT INTO products VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (url, ctx.author.id, title, price, datetime.datetime.now().isoformat(), datetime.datetime.now().isoformat(), price, 0))
             conn.commit()
             conn.close()
-            self.add_job(url)
+            job = Job(title=title, current_price=price, url=url, interval=30, last_checked=datetime.datetime.now().isoformat(), user_id=ctx.author.id)
+            await self.queue.put(job)
         except sqlite3.IntegrityError as e:
             conn.close()
             await ctx.respond("Error adding product to database")
