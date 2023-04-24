@@ -11,10 +11,10 @@ from discord.ext import pages
 
 load_dotenv(dotenv_path="settings.env")
 ALLOWED_GUILDS = [int(os.getenv("ALLOWED_GUILDS"))]
-HEADERS = ({'User-Agent':
-                'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 '
-                'Safari/537.36',
-            'Accept-Language': 'en-US, en;q=0.5'})
+HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:66.0) Gecko/20100101 Firefox/66.0",
+           "Accept-Encoding": "gzip, deflate",
+           "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,/;q=0.8", "DNT": "1", "Connection": "close",
+           "Upgrade-Insecure-Requests": "1"}
 
 
 # Job Class
@@ -58,6 +58,11 @@ class Job:
         embed.set_footer(text="Last Checked: " + str(self.last_checked))
         await user.send(embed=embed)
 
+    def check_price_change(self):
+        if self.previous_prices[-1] != self.current_price:
+            return True
+        return False
+
 
 ## User Functions
 ## These functions are used to create and manage user files
@@ -81,6 +86,7 @@ async def get_products(author_id: int):
     # Select the url and price for all products associated with the user
     cursor.execute("SELECT title, price, date_updated, url FROM products WHERE user_id = ?", (author_id,))
     products = cursor.fetchall()
+    print(products)
     conn.close()
     return products
 
@@ -96,19 +102,26 @@ def get_user(ctx: discord.ApplicationContext):
 
 ## Parsing Functions
 ## These functions are used to parse the HTML of the Amazon Canada website
+def generate_user_url(url: str, user_id: int):
+    return url + "<" + str(user_id)
+
+
+def get_original_url(url: str):
+    print('URL SPLIT: ' + url.split("<")[0])
+    return url.split("<")[0]
+
+
 def get_title(soup: bs4.BeautifulSoup):
     try:
+        print(soup)
         title = soup.find("span", attrs={"id": 'productTitle'}).string.strip()
+        print(title)
     except AttributeError as e:
         title = e
     return title
 
 
 def get_price(soup: bs4.BeautifulSoup = None, url: str = None):
-    if soup is None:
-        print("Soup is None")
-    if url is None:
-        print("URL is None")
     print("Getting price at " + str(datetime.datetime.now()))
     if soup is None:
         page = requests.get(url, headers=HEADERS)
@@ -146,7 +159,7 @@ def setup_db():
     # Create a products table, with a foreign key to the users table
     cursor.execute("""CREATE TABLE IF NOT EXISTS products (
         url TEXT PRIMARY KEY,
-        user_id INTEGER,
+        user_id TEXT,
         title TEXT,
         price TEXT,
         date_added TEXT,
@@ -219,7 +232,9 @@ class Amazon(discord.Cog, name="az"):
                 # Get the time difference between now and the last time the price was updated
                 difference = (datetime.datetime.now() - datetime.datetime.fromisoformat(product[2])).total_seconds()
 
-                embed.add_field(name=product[0], value=f"[{product[1]}]({product[3]}) as of {divmod(difference, 3600)[0]} hours, {divmod(difference, 60)[0]} min ago.", inline=False)
+                embed.add_field(name=product[0],
+                                value=f"[{product[1]}]({get_original_url(product[3])}) as of {divmod(difference, 3600)[0]} hours, {divmod(difference, 60)[0]} min ago.",
+                                inline=False)
             embed_pages.append(embed)
 
         paginator = pages.Paginator(
@@ -230,25 +245,19 @@ class Amazon(discord.Cog, name="az"):
         await paginator.respond(ctx.interaction)
 
     @az.command(
-        name="get_product",
-        description="Get the title and price of an Amazon product",
+        name="get",
+        description="get the product to your tracked products",
         guild_ids=ALLOWED_GUILDS)
     @discord.option(name="url", description="URL of the Amazon product", required=True)
-    async def get_product(self, ctx: discord.ApplicationContext, url: str = "None"):
-        await ctx.defer()
-        webpage = requests.get(url, headers=HEADERS)
-        soup = bs4.BeautifulSoup(webpage.content, "lxml")
-        title = get_title(soup)
-        price = get_price(soup=soup)
-        await ctx.respond(f"{title}\n{price}")
-        return
+    async def get_all_prodct(self, ctx: discord.ApplicationContext, url: str = "None"):
+        await get_products(ctx.author.id)
 
     @az.command(
-        name="save_product",
+        name="track",
         description="Save the product to your tracked products",
         guild_ids=ALLOWED_GUILDS)
     @discord.option(name="url", description="URL of the Amazon product", required=True)
-    async def save_product(self, ctx: discord.ApplicationContext, url: str = "None"):
+    async def save_product(self, ctx: discord.ApplicationContext, url):
         await ctx.defer()
         # Check if the user is in the database
         user = get_user(ctx)
@@ -258,17 +267,20 @@ class Amazon(discord.Cog, name="az"):
         # Get the details of the product
         webpage = requests.get(url, headers=HEADERS)
         soup = bs4.BeautifulSoup(webpage.content, "lxml")
-        title = get_title(soup)
+        title = get_title(soup=soup)
         price = get_price(soup=soup)
-        # Add the product to the database
+        user_url = generate_user_url(url=url, user_id=ctx.author.id)
+        print((user_url, ctx.author.id, title, price, datetime.datetime.now().isoformat(),
+               datetime.datetime.now().isoformat(), "", ""))
 
+        # Add the product to the database
         try:
             conn = sqlite3.connect(os.getenv("SQLITE_DATABASE"))
             cursor = conn.cursor()
-            cursor.execute("INSERT INTO products VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (
-                url, ctx.author.id, title, price, datetime.datetime.now().isoformat(),
-                datetime.datetime.now().isoformat(),
-                price, 0))
+            cursor.execute("INSERT INTO products VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                           (user_url, ctx.author.id, title, price, datetime.datetime.now().isoformat(),
+                            datetime.datetime.now().isoformat(), "", ""))
+
             conn.commit()
             conn.close()
             job = Job(title=title, current_price=price, url=url, interval=30,
