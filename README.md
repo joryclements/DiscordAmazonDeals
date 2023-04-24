@@ -1,7 +1,8 @@
 # DiscordAmazonDeals
 
 DiscordAmazonDeals is a Discord bot that makes it easy for users to add, manage, and track Amazon items. It monitors the price of specified products and sends notifications via Discord whenever there's a change. Using Python, this bot simplifies price tracking and saves you time and effort.
-![Screenshot 2023-04-24 at 11.27.46 AM.png](..%2F..%2FDesktop%2FScreenshot%202023-04-24%20at%2011.27.46%20AM.png)
+<img width="328" alt="Screenshot 2023-04-24 at 11 27 46 AM" src="https://user-images.githubusercontent.com/70959739/234046724-eb32b2a6-0867-4be8-88ea-51165257c4fb.png">
+
 
 ## Features
 - Add and remove Amazon items for tracking
@@ -9,8 +10,11 @@ DiscordAmazonDeals is a Discord bot that makes it easy for users to add, manage,
 - Receive real-time price change notifications on Discord
 - Customizable notification settings
 - Supports multiple users and servers
-![Screenshot 2023-04-24 at 11.28.24 AM.png](..%2F..%2FDesktop%2FScreenshot%202023-04-24%20at%2011.28.24%20AM.png)
-![Screenshot 2023-04-24 at 11.37.43 AM.png](..%2F..%2FDesktop%2FScreenshot%202023-04-24%20at%2011.37.43%20AM.png)
+
+<img width="1169" alt="Screenshot 2023-04-24 at 11 28 24 AM" src="https://user-images.githubusercontent.com/70959739/234046767-b36be152-abdc-4cb0-a160-371ddf796f07.png">
+<img width="447" alt="Screenshot 2023-04-24 at 11 37 43 AM" src="https://user-images.githubusercontent.com/70959739/234046768-f8be5d3f-7382-470f-9bef-a1ed3f8c19ee.png">
+
+
 ## Getting Started
 These instructions will help you set up a local copy of the project and run it on your machine.
 
