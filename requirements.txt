@@ -3,3 +3,7 @@ python-dotenv
 bs4
 requests
 lxml
+apscheduler
+SQLAlchemy
+schedule
+discord.py-pagination
