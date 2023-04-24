@@ -1,6 +1,7 @@
 # DiscordAmazonDeals
 
 DiscordAmazonDeals is a Discord bot that makes it easy for users to add, manage, and track Amazon items. It monitors the price of specified products and sends notifications via Discord whenever there's a change. Using Python, this bot simplifies price tracking and saves you time and effort.
+
 <img width="328" alt="Screenshot 2023-04-24 at 11 27 46 AM" src="https://user-images.githubusercontent.com/70959739/234046724-eb32b2a6-0867-4be8-88ea-51165257c4fb.png">
 
 
