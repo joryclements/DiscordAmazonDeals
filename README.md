@@ -1,26 +1,37 @@
-# Overview
-A bot for tracking Amazon prices right in Discord!
-Keep track of your favorite products and get notified when they go on sale via Discord direct messages.
-More features coming soon! (e.g. price history, price graphs, etc.) Have a feature request? Open an issue!
+# DiscordAmazonDeals
 
-# Installation
-`pip3 install -r requirements.txt` to install dependencies.
+DiscordAmazonDeals is a Discord bot that makes it easy for users to add, manage, and track Amazon items. It monitors the price of specified products and sends notifications via Discord whenever there's a change. Using Python, this bot simplifies price tracking and saves you time and effort.
+![Screenshot 2023-04-24 at 11.27.46 AM.png](..%2F..%2FDesktop%2FScreenshot%202023-04-24%20at%2011.27.46%20AM.png)
 
-You will also need a Discord bot token. You can get one [here](https://discordapp.com/developers/applications).
+## Features
+- Add and remove Amazon items for tracking
+- Manage tracked items with ease
+- Receive real-time price change notifications on Discord
+- Customizable notification settings
+- Supports multiple users and servers
+![Screenshot 2023-04-24 at 11.28.24 AM.png](..%2F..%2FDesktop%2FScreenshot%202023-04-24%20at%2011.28.24%20AM.png)
+![Screenshot 2023-04-24 at 11.37.43 AM.png](..%2F..%2FDesktop%2FScreenshot%202023-04-24%20at%2011.37.43%20AM.png)
+## Getting Started
+These instructions will help you set up a local copy of the project and run it on your machine.
 
-# Configuration
-There is a `settings.env` file that you must fill out with your own information.
-* `DISCORD_API_KEY` - Your Discord bot token
-* `ALLOWED_GUILDS` - The guild ID of your Discord server(s) (separated by commas if multiple)
-* `SQLITE_DB_PATH` - The path to your SQLite database file (e.g. `./amazon.db`)
+### Prerequisites
 
-# Usage
-### Starting the Bot
-`python3 main.py` to start the bot.
+Before cloning the repository, ensure you have Python installed on your device. If not, follow the official guide below to install it:
 
-### Commands - Admin Management
-Coming Soon 
+- [Python](https://www.python.org/downloads/)
 
-### Commands -  Product Management
-* `/amzn track <url>` - Add a product to the database, where `<url>` is the Amazon product URL
-* `/az view_products` - List all your saved products
+Additionally, you'll need a Discord account and server to which you can add the bot. Create a new bot and generate a token using the following guide:
+
+- [Creating a Discord bot](https://discordpy.readthedocs.io/en/stable/discord.html)
+
+### Installation
+1. Clone the repository using git: `git clone https://github.com/joryclements/DiscordAmazonDeals`
+2. Change into the project directory and install the required dependencies by running the following commands: `cd DiscordAmazonDeals/  && pip install -r requirements.txt`
+3. Update the `settings.env` file with your Discord bot token and list of allowed guilds.
+
+## Running the Discord Bot
+Once the dependencies have been installed and the configuration file updated, you can run the bot with the following command: `python bot.py`
+
+## Built With
+* Python 
+* Discord.py - An API wrapper for Discord written in Python

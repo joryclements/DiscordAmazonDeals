@@ -86,7 +86,6 @@ async def get_products(author_id: int):
     # Select the url and price for all products associated with the user
     cursor.execute("SELECT title, price, date_updated, url FROM products WHERE user_id = ?", (author_id,))
     products = cursor.fetchall()
-    print(products)
     conn.close()
     return products
 
@@ -107,22 +106,18 @@ def generate_user_url(url: str, user_id: int):
 
 
 def get_original_url(url: str):
-    print('URL SPLIT: ' + url.split("<")[0])
     return url.split("<")[0]
 
 
 def get_title(soup: bs4.BeautifulSoup):
     try:
-        print(soup)
         title = soup.find("span", attrs={"id": 'productTitle'}).string.strip()
-        print(title)
     except AttributeError as e:
         title = e
     return title
 
 
 def get_price(soup: bs4.BeautifulSoup = None, url: str = None):
-    print("Getting price at " + str(datetime.datetime.now()))
     if soup is None:
         page = requests.get(url, headers=HEADERS)
         soup = bs4.BeautifulSoup(page.content, "lxml")
@@ -270,8 +265,6 @@ class Amazon(discord.Cog, name="az"):
         title = get_title(soup=soup)
         price = get_price(soup=soup)
         user_url = generate_user_url(url=url, user_id=ctx.author.id)
-        print((user_url, ctx.author.id, title, price, datetime.datetime.now().isoformat(),
-               datetime.datetime.now().isoformat(), "", ""))
 
         # Add the product to the database
         try:
